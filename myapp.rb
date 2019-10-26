@@ -9,7 +9,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-def post_for_dakoku
+def post_for_dakoku(type: '')
   # 一旦環境変数から取得する
   access_token = ENV.fetch('ACCESS_TOKEN') { '' }
 
@@ -17,8 +17,8 @@ def post_for_dakoku
   uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
   body = {
     'company_id' => '1978047',
-    'type' => "break_end",
-    'base_date' => "2019-10-26"
+    'type' => type,
+    'base_date' => Date.today.strftime('%Y-%m-%d')
   }
   req_options = {
     use_ssl: uri.scheme == "https"
@@ -41,17 +41,12 @@ def post_for_dakoku
   'hello'
 end
 
-def get_for_dakoku
+def get_for_dakoku_list
   # 一旦環境変数から取得する
   access_token = ENV.fetch('ACCESS_TOKEN') { '' }
 
   pp access_token
   uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
-  body = {
-    'company_id' => '1978047',
-    'type' => "clock_in",
-    'base_date' => "2019-10-28"
-  }
   req_options = {
     use_ssl: uri.scheme == "https"
   }
@@ -73,8 +68,7 @@ def get_for_dakoku
   end
   pp response.message
   pp response.body
-
-  'hello'
+  JSON.parse(response.body)
 end
 
 #################################
@@ -100,7 +94,17 @@ get '/refresh' do
 end
 
 def dakoku
-  post_for_dakoku
+  last_dakoku = get_for_dakoku_list.last
+  case last_dakoku['type']
+  when 'break_begin'
+    post_for_dakoku(type: 'break_end')
+  when 'break_end'
+    post_for_dakoku(type: 'break_begin')
+  end
+end
+
+def dakoku_list
+  get_for_dakoku_list
 end
 
 def refresh
