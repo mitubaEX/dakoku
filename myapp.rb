@@ -2,6 +2,85 @@
 require 'sinatra'
 require 'freee/api'
 
+#################################
+# post request util
+#################################
+require 'net/http'
+require 'uri'
+require 'json'
+
+def post_for_dakoku
+  # 一旦環境変数から取得する
+  access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+
+  pp access_token
+  uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
+  body = {
+    'company_id' => '1978047',
+    'type' => "break_end",
+    'base_date' => "2019-10-26"
+  }
+  req_options = {
+    use_ssl: uri.scheme == "https"
+  }
+
+  # Create the HTTP objects
+  req = Net::HTTP::Post.new(uri)
+  # header
+  req["Authorization"] = "Bearer #{access_token}"
+  req["Content-Type"] = "application/json"
+  req.body = body.to_json
+
+  # Send the request
+  response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+    http.request(req)
+  end
+  pp response.message
+  pp response.body
+
+  'hello'
+end
+
+def get_for_dakoku
+  # 一旦環境変数から取得する
+  access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+
+  pp access_token
+  uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
+  body = {
+    'company_id' => '1978047',
+    'type' => "clock_in",
+    'base_date' => "2019-10-28"
+  }
+  req_options = {
+    use_ssl: uri.scheme == "https"
+  }
+
+  # Create the HTTP objects
+  params = {
+    :company_id => 1978047,
+  }
+  uri.query = URI.encode_www_form(params)
+
+  req = Net::HTTP::Get.new(uri)
+  # header
+  req["Authorization"] = "Bearer #{access_token}"
+  req["Content-Type"] = "application/json"
+
+  # Send the request
+  response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+    http.request(req)
+  end
+  pp response.message
+  pp response.body
+
+  'hello'
+end
+
+#################################
+# api
+#################################
+
 CLIENT_ID = ENV.fetch('CLIENT_ID') { '' }
 CLIENT_SECRET = ENV.fetch('CLIENT_SECRET') { '' }
 
@@ -13,15 +92,19 @@ get '/' do
 end
 
 get '/dakoku' do
-  'Hello dakuko!'
+  dakoku
 end
 
 get '/refresh' do
   refresh
 end
 
+def dakoku
+  post_for_dakoku
+end
+
 def refresh
-  # 一旦環境変数から取得する
+  # 一旦環境変数から取得する(dbに移すなど)
   access_token = ENV.fetch('ACCESS_TOKEN') { '' }
   refresh_token = ENV.fetch('REFRESH_TOKEN') { '' }
   expires_at = ENV.fetch('EXPIRES_AT') { '' }
@@ -36,6 +119,7 @@ def refresh
   ENV['REFRESH_TOKEN'] = response.refresh_token.to_s
   ENV['EXPIRES_AT'] = response.expires_in.to_s
 
+  # 復活用
   File.open("env.sh", "w") do |file|
     file.puts "export ACCESS_TOKEN=#{ENV['ACCESS_TOKEN']} REFRESH_TOKEN=#{ENV['REFRESH_TOKEN']} EXPIRES_AT=#{ENV['EXPIRES_AT']}"
   end
