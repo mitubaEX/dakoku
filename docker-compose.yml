@@ -1,0 +1,19 @@
+version: '3'
+services:
+  db:
+    build: ./sql
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=docker
+      - POSTGRES_DB=docker
+    restart: always
+  web:
+    build: .
+    env_file:
+      - env
+    volumes:
+      - .:/myapp
+    ports:
+      - "4567:4567"
+    depends_on:
+      - db
