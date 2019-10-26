@@ -95,16 +95,18 @@ end
 
 def dakoku
   last_dakoku = get_for_dakoku_list.last
+  # 出勤していない場合は、出勤する
+  if Date.parse(last_dakoku['date']) == Date.today
+    post_for_dakoku(type: 'clock_in')
+  end
+
+  # 出勤、退勤を繰り返す
   case last_dakoku['type']
   when 'break_begin'
     post_for_dakoku(type: 'break_end')
   when 'break_end'
     post_for_dakoku(type: 'break_begin')
   end
-end
-
-def dakoku_list
-  get_for_dakoku_list
 end
 
 def refresh
