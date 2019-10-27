@@ -3,3 +3,4 @@ vendor
 .bundle
 sql/init.sql
 env
+postgres-data

@@ -1,6 +1,38 @@
+# coding: utf-8
 # myapp.rb
 require 'sinatra'
 require 'freee/api'
+
+set :environment, :production
+
+#################################
+# postgres
+#################################
+require 'pg'
+
+class PgClient
+  def initialize
+    @connect = PG::connect(host: "db", user: "docker", password: "pass", port: "5432")
+  end
+
+  def get_token
+    results = @connect.exec("SELECT * from tokens")
+    pp results[0]
+    return results[0]['access_token'], results[0]['refresh_token'], results[0]['expires_at']
+  end
+
+  def update_token(access_token, refresh_token, expires_at)
+    @connect.exec("UPDATE tokens SET access_token='#{access_token}', refresh_token='#{refresh_token}', expires_at='#{expires_at}' WHERE id=1")
+  end
+
+  def finish
+    @connect.finish
+  end
+
+end
+
+PG_CLIENT = PgClient.new
+# pp PG_CLIENT.get_token
 
 #################################
 # post request util
@@ -11,9 +43,9 @@ require 'json'
 
 def post_for_dakoku(type: '')
   # 一旦環境変数から取得する
-  access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  # access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  access_token, _, _ = PG_CLIENT.get_token
 
-  pp access_token
   uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
   body = {
     'company_id' => '1978047',
@@ -35,17 +67,22 @@ def post_for_dakoku(type: '')
   response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
     http.request(req)
   end
-  pp response.message
+
   pp response.body
+
+  # refresh
+  if response.code != 200
+    refresh
+  end
 
   'hello'
 end
 
 def get_for_dakoku_list
   # 一旦環境変数から取得する
-  access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  # access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  access_token, _, _ = PG_CLIENT.get_token
 
-  pp access_token
   uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/time_clocks")
   req_options = {
     use_ssl: uri.scheme == "https"
@@ -66,8 +103,12 @@ def get_for_dakoku_list
   response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
     http.request(req)
   end
-  pp response.message
-  pp response.body
+
+  # refresh
+  if response.code != 200
+    refresh
+  end
+
   JSON.parse(response.body)
 end
 
@@ -89,15 +130,12 @@ get '/dakoku' do
   dakoku
 end
 
-get '/refresh' do
-  refresh
-end
-
 def dakoku
   last_dakoku = get_for_dakoku_list.last
   # 出勤していない場合は、出勤する
-  if Date.parse(last_dakoku['date']) == Date.today
+  if Date.parse(last_dakoku['date']) != Date.today
     post_for_dakoku(type: 'clock_in')
+    return
   end
 
   # 出勤、退勤を繰り返す
@@ -111,23 +149,15 @@ end
 
 def refresh
   # 一旦環境変数から取得する(dbに移すなど)
-  access_token = ENV.fetch('ACCESS_TOKEN') { '' }
-  refresh_token = ENV.fetch('REFRESH_TOKEN') { '' }
-  expires_at = ENV.fetch('EXPIRES_AT') { '' }
+  # access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  # refresh_token = ENV.fetch('REFRESH_TOKEN') { '' }
+  # expires_at = ENV.fetch('EXPIRES_AT') { '' }
+  access_token, refresh_token, expires_at = PG_CLIENT.get_token
 
-  pp access_token
-  pp refresh_token
-  pp expires_at
   response = OAUTH2.refresh_token(access_token, refresh_token, expires_at)
   pp response
 
-  ENV['ACCESS_TOKEN'] = response.token.to_s
-  ENV['REFRESH_TOKEN'] = response.refresh_token.to_s
-  ENV['EXPIRES_AT'] = response.expires_in.to_s
+  PG_CLIENT.update_token(response.token.to_s, response.refresh_token.to_s, response.expires_in.to_s)
 
-  # 復活用
-  File.open("env.sh", "w") do |file|
-    file.puts "export ACCESS_TOKEN=#{ENV['ACCESS_TOKEN']} REFRESH_TOKEN=#{ENV['REFRESH_TOKEN']} EXPIRES_AT=#{ENV['EXPIRES_AT']}"
-  end
-
+  pp PG_CLIENT.get_token
 end
