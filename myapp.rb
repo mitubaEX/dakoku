@@ -112,6 +112,75 @@ def get_for_dakoku_list
   JSON.parse(response.body)
 end
 
+def put_for_dakoku_record(date: '')
+  # 一旦環境変数から取得する
+  # access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  access_token, _, _ = PG_CLIENT.get_token
+
+  uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/work_records/#{date}")
+  body = {
+    'company_id' => '1978047',
+    'break_records' => [],
+    'clock_in_at' => "#{date}T09:10:00",
+    'clock_out_at' => "#{date}T18:20:00"
+  }
+  req_options = {
+    use_ssl: uri.scheme == "https"
+  }
+
+  # Create the HTTP objects
+  req = Net::HTTP::Put.new(uri)
+  # header
+  req["Authorization"] = "Bearer #{access_token}"
+  req["Content-Type"] = "application/json"
+  req.body = body.to_json
+
+  # Send the request
+  response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+    http.request(req)
+  end
+
+  pp response.body
+
+  # refresh
+  refresh
+end
+
+def delete_for_dakoku_record(date: '')
+  # 一旦環境変数から取得する
+  # access_token = ENV.fetch('ACCESS_TOKEN') { '' }
+  access_token, _, _ = PG_CLIENT.get_token
+
+  uri = URI.parse("https://api.freee.co.jp/hr/api/v1/employees/642339/work_records/#{date}")
+  body = {
+    'company_id' => '1978047',
+    'break_records' => [],
+    'clock_in_at' => "#{date}T09:10:00",
+    'clock_out_at' => "#{date}T18:20:00"
+  }
+  req_options = {
+    use_ssl: uri.scheme == "https"
+  }
+
+  # Create the HTTP objects
+  req = Net::HTTP::Delete.new(uri)
+  # header
+  req["Authorization"] = "Bearer #{access_token}"
+  req["Content-Type"] = "application/json"
+  req.body = body.to_json
+
+  # Send the request
+  response = Net::HTTP.start(uri.hostname, uri.port, req_options) do |http|
+    http.request(req)
+  end
+
+  pp response.body
+
+  # refresh
+  refresh
+end
+
+
 #################################
 # api
 #################################
@@ -127,7 +196,7 @@ get '/' do
 end
 
 get '/dakoku' do
-  dakoku
+  dakoku_record
 end
 
 def dakoku
@@ -145,6 +214,11 @@ def dakoku
   when 'break_end'
     post_for_dakoku(type: 'break_begin')
   end
+end
+
+def dakoku_record
+  delete_for_dakoku_record(date: '2019-10-24')
+  put_for_dakoku_record(date: '2019-10-24')
 end
 
 def refresh
