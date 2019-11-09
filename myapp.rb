@@ -199,6 +199,12 @@ get '/dakoku' do
   dakoku_record
 end
 
+post '/dakoku_record', provides: :json do
+  params = JSON.parse request.body.read
+  pp params
+  dakoku_record params['date']
+end
+
 def dakoku
   last_dakoku = get_for_dakoku_list.last
   # 出勤していない場合は、出勤する
@@ -216,9 +222,9 @@ def dakoku
   end
 end
 
-def dakoku_record
-  delete_for_dakoku_record(date: '2019-10-24')
-  put_for_dakoku_record(date: '2019-10-24')
+def dakoku_record(date)
+  delete_for_dakoku_record(date: date)
+  put_for_dakoku_record(date: date)
 end
 
 def refresh
